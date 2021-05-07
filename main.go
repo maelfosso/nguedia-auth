@@ -5,10 +5,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
 	"github.com/hashicorp/go-hclog"
-	"github.com/rs/cors"
+	"lohon.cm/msvc/auth/db"
 )
 
 func init() {
@@ -20,12 +18,23 @@ var (
 )
 
 func main() {
+	database := db.Database()
+	defer db.CloseDB()
+	dbQuery := db.NewQuery(database)
 
-	r := mux.NewRouter()
+	errChan := make(chan error)
 
-	loggedRouter := handlers.LoggingHandler(os.Stdout, r)
-	handler := cors.AllowAll().Handler(loggedRouter)
+	// HTTP
+	go func() {
+		handler := NewHttpServer(dbQuery)
 
-	log.Info("Listen to port :3000")
-	http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), handler)
+		log.Info("Listen to port :3000")
+		errChan <- http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), handler)
+	}()
+
+	// gRPC
+
+	// NATS
+
+	log.Error("", <-errChan)
 }
