@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -27,6 +28,10 @@ func NewQuery(database *mongo.Database) *DBQuery {
 	return &DBQuery{
 		database: database,
 	}
+}
+
+func (db DBQuery) collection(coll string) *mongo.Collection {
+	return db.database.Collection(coll)
 }
 
 func (db DBQuery) FindUserByEmail(email string) (*User, error) {
@@ -60,7 +65,67 @@ func (db DBQuery) SaveUser(user *User) error {
 	return nil
 }
 
-func (db DBQuery) DeleteResetPassword(email string)           {}
-func (db DBQuery) SaveResetPasswordToken(email, token string) {}
-func (db DBQuery) FindResetPassword(email, token string)      {}
-func (db DBQuery) UpdateUserPassword()                        {}
+func (db DBQuery) SaveResetPasswordToken(email, token string) (*ResetPassword, error) {
+	now := time.Now()
+	ttl := 10 * time.Minute
+	data := ResetPassword{
+		Email:     email,
+		Token:     token,
+		ExpiredAt: now.Add(ttl),
+		CreatedAt: now,
+	}
+
+	insertResult, err := db.collection("passwords").InsertOne(context.Background(), data)
+	if err != nil {
+		return nil, err
+	}
+	data.ID = insertResult.InsertedID.(primitive.ObjectID)
+
+	return &data, nil
+}
+
+func (db DBQuery) DeleteResetPassword(email string) error {
+	if _, err := db.collection("passwords").DeleteOne(context.Background(), bson.M{"email": email}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db DBQuery) FindResetPassword(email, token string) (*ResetPassword, error) {
+	var rp ResetPassword
+	var rpColl = db.database.Collection("passwords")
+
+	if err := rpColl.FindOne(context.Background(), bson.M{"email": email, "token": token}).Decode(&rp); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		} else {
+			return nil, err
+		}
+	}
+
+	return &rp, nil
+}
+
+func (db DBQuery) UpdateUserPassword(u User, password string) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	u.Password = string(hash)
+	_, err = db.collection("users").UpdateByID(
+		context.Background(),
+		u.ID,
+		bson.M{
+			"$set": bson.M{
+				"password": string(hash),
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

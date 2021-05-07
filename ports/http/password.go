@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
+
+	"lohon.cm/msvc/auth/utils"
 )
 
-func (h *HttpServer) Forget(w http.ResponseWriter, r *http.Request) {
+func (h *HttpServer) Forgot(w http.ResponseWriter, r *http.Request) {
 	var params ForgetPasswordParams
 
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
@@ -27,20 +30,19 @@ func (h *HttpServer) Forget(w http.ResponseWriter, r *http.Request) {
 
 	h.DB.DeleteResetPassword(params.Email)
 
-	token, err := ""
+	token, err := utils.GenerateRandomString(32)
 	if err != nil {
 		JSON(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	data, err := h.DB.SaveResetPasswordToken(params.Email, token)
+	_, err = h.DB.SaveResetPasswordToken(params.Email, token)
 	if err != nil {
 		JSON(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	JSON(w, http.StatusOK, true)
-	return
 }
 
 func (h *HttpServer) Reset(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +62,7 @@ func (h *HttpServer) Reset(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, resetToken != nil)
 }
 
-func (h *HttpServer) ValidateToken(w http.ResponseWriter, r *http.Request) {
+func (h *HttpServer) Verify(w http.ResponseWriter, r *http.Request) {
 	var params ResetPasswordParams
 
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
@@ -84,8 +86,9 @@ func (h *HttpServer) ValidateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Check if the token has expired
-	// If so reject
+	if time.Now().After(rp.ExpiredAt) {
+		JSON(w, http.StatusBadRequest, fmt.Errorf("token has expired"))
+	}
 
 	user, err := h.DB.FindUserByEmail(params.Email)
 	if err != nil {

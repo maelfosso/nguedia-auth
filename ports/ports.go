@@ -22,6 +22,10 @@ func NewHttpServer(db *db.DBQuery) http.Handler {
 	r.HandleFunc("/signup", h.SignUp).Methods(http.MethodPost)
 	r.HandleFunc("/signin", h.SignIn).Methods(http.MethodPost)
 
+	r.HandleFunc("/password/forgot", h.Forgot).Methods(http.MethodPost)
+	r.HandleFunc("/password/forgot/verify", h.Verify).Methods(http.MethodPost)
+	r.HandleFunc("/password/reset", h.Reset).Methods(http.MethodPost)
+
 	r.NotFoundHandler = r.NewRoute().BuildOnly().HandlerFunc(http.NotFound).GetHandler()
 
 	loggedRouter := handlers.LoggingHandler(os.Stdout, r)

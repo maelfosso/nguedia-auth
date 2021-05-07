@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/json"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -23,4 +24,12 @@ func (u *User) MarshalJSON() ([]byte, error) {
 	}{
 		Alias: (*Alias)(u),
 	})
+}
+
+type ResetPassword struct {
+	ID        primitive.ObjectID
+	Email     string    `json:"email,omitempty" bson:"email,omitempty"`
+	Token     string    `json:"token,omitempty" bson:"token,omitempty"`
+	ExpiredAt time.Time `json:"expiredAt,omitempty" bson:"expiredAt,omitempty"`
+	CreatedAt time.Time `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
 }
