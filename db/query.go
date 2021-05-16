@@ -11,13 +11,13 @@ import (
 )
 
 type Query interface {
-	FindUserByEmail(email string)
-	SaveUser()
+	FindUserByEmail(email string) (*User, error)
+	SaveUser(user *User)
 
-	DeleteResetPassword(email string)
-	SaveResetPasswordToken(email, token string)
-	FindResetPassword(email, token string)
-	UpdateUserPassword()
+	DeleteResetPassword(email string) error
+	SaveResetPasswordToken(email, token string) (*ResetPassword, error)
+	FindResetPassword(email, token string) (*ResetPassword, error)
+	UpdateUserPassword(user User, password string) error
 }
 
 type DBQuery struct {
